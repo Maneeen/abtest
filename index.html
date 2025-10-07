@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dark UX Patterns — Research Prototype</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#fff; --muted:#6b7280; --accent:#0ea5a4;
+    --danger:#ef4444; --green:#16a34a; --shadow: 0 6px 18px rgba(15,23,42,0.08);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  body{background:var(--bg); margin:0; min-height:100vh; color:#0f172a}
+  .wrap{max-width:980px;margin:28px auto;padding:20px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  h1{font-size:20px;margin:0}
+  .muted{color:var(--muted);font-size:13px}
+  .card{background:var(--card);border-radius:12px;padding:22px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .row{display:flex;gap:12px;align-items:center}
+  .controls{display:flex;gap:8px;align-items:center}
+  .btn{padding:10px 14px;border-radius:8px;border:0;cursor:pointer;font-weight:600}
+  .btn-ghost{background:transparent;border:1px solid #e6e9ef;color:#0f172a}
+  .btn-accent{background:var(--accent);color:white}
+  .btn-green{background:var(--green);color:white}
+  .btn-danger{background:var(--danger);color:white}
+  .screens{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .screen{background:#fff;border-radius:10px;padding:18px;min-height:260px;position:relative}
+  .title{font-weight:700;margin-bottom:10px}
+  .tariffs{display:flex;gap:12px}
+  .tariff{flex:1;border-radius:8px;padding:14px;border:1px solid #e6e9ef;display:flex;flex-direction:column;gap:8px}
+  .tariff .price{font-size:18px;font-weight:700}
+  .cta{margin-top:auto}
+  .small{font-size:12px;color:var(--muted)}
+  .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#ffedd5;color:#92400e;font-weight:700;font-size:12px}
+  label{display:flex;align-items:center;gap:8px}
+  input[type="checkbox"]{width:16px;height:16px}
+  .overlay{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:none;align-items:center;justify-content:center}
+  .modal{background:#fff;padding:16px;border-radius:12px;max-width:420px}
+  .small-input{width:70px;padding:6px;border-radius:6px;border:1px solid #e6e9ef}
+  footer{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:18px}
+  .log{font-family:monospace;background:#0b1220;color:#cbd5e1;padding:10px;border-radius:8px;font-size:12px;max-height:120px;overflow:auto}
+  .variant-pill{padding:6px 10px;border-radius:999px;border:1px solid #e6e9ef;font-weight:700}
+  .scarcity{color:var(--danger);font-weight:800}
+  .time{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Dark UX Patterns — Research Prototype</h1>
+      <div class="muted">Набор сценариев: A = контроль (honest), B = dark (manipulative). Собираются события для анализа.</div>
+    </div>
+    <div class="controls">
+      <div class="muted">Participant ID</div>
+      <input id="pid" class="small-input" placeholder="p001" />
+      <div style="width:14px"></div>
+      <div class="muted">Group</div>
+      <select id="group" class="small-input">
+        <option value="A">A (control)</option>
+        <option value="B">B (dark)</option>
+      </select>
+      <button id="resetBtn" class="btn btn-ghost">Reset data</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+      <div>
+        <div style="font-weight:700">Эксперимент: выбор тарифов и поведение</div>
+        <div class="small muted">Запускай сценарии по порядку. События записываются автоматически.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="startTimer" class="btn btn-accent">Start session</button>
+        <button id="exportBtn" class="btn btn-ghost">Export results</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screens: grid of scenario previews for quick test -->
+  <div class="screens">
+
+    <!-- 1. Pricing choice (Deceptive Hierarchy / Anchoring) -->
+    <div class="screen" id="screen-pricing">
+      <div class="title">1) Выбор тарифа — Pricing choice</div>
+      <div class="muted small">Цель: выбрать план, который вам подходит.</div>
+      <div style="height:10px"></div>
+
+      <div class="tariffs" id="tariff-list">
+        <!-- Tariff cards will be injected by JS based on group -->
+      </div>
+
+      <div style="height:12px"></div>
+      <div class="small">После выбора появится подтверждение и короткий опрос.</div>
+    </div>
+
+    <!-- 2. Payment with hidden fee (Progressive Disclosure) -->
+    <div class="screen" id="screen-fee">
+      <div class="title">2) Оплата — комиссия (Progressive Disclosure)</div>
+      <div class="muted small">Цель: оценить итоговую сумму и подтвердить оплату.</div>
+      <div style="height:10px"></div>
+      <div class="card" style="box-shadow:none;padding:12px">
+        <div style="display:flex;justify-content:space-between">
+          <div>
+            <div style="font-weight:700">Итог: <span id="sum-amount">—</span></div>
+            <div class="small muted" id="fee-note">Комиссия: —</div>
+          </div>
+          <div>
+            <button id="confirmPay" class="btn btn-green">Подтвердить оплату</button>
+          </div>
+        </div>
+      </div>
+      <div class="small muted">Вариант B показывает комиссию только на финальном шаге.</div>
+    </div>
+
+    <!-- 3. Confirmshaming -->
+    <div class="screen" id="screen-confirmshame">
+      <div class="title">3) Предложение скидки / отказ (Confirmshaming)</div>
+      <div class="muted small">Цель: принять или отклонить предложение.</div>
+      <div style="height:10px"></div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div>
+          <div style="font-weight:700">Специальная скидка 20% — получить сейчас?</div>
+          <div class="small muted">Промо действует 24 часа.</div>
+        </div>
+        <div style="margin-left:auto">
+          <button id="acceptDisc" class="btn btn-accent">Да, взять скидку</button>
+          <button id="declineDisc" class="btn btn-ghost" style="margin-left:8px">Нет, спасибо</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Free trial (Forced Continuity) -->
+    <div class="screen" id="screen-trial">
+      <div class="title">4) Триал — автоматическое продление (Forced Continuity)</div>
+      <div class="muted small">Цель: подписаться на пробный период.</div>
+      <div style="height:10px"></div>
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:700">7 дней бесплатно</div>
+          <div class="small muted" id="trial-note">Потом — $9.99/мес</div>
+        </div>
+        <div>
+          <button id="startTrial" class="btn btn-green">Попробовать бесплатно</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Product scarcity -->
+    <div class="screen" id="screen-scarcity">
+      <div class="title">5) Карточка товара — псевдо-дефицит (Simulated Scarcity)</div>
+      <div class="muted small">Цель: добавить товар в корзину.</div>
+      <div style="height:10px"></div>
+      <div class="card">
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="flex:1">
+            <div style="font-weight:700">Беспроводные наушники — Model X</div>
+            <div class="small muted">Цена: $49.99</div>
+          </div>
+          <div>
+            <div id="scarcity-badge" class="badge" style="display:none">Осталось 1!</div>
+            <button id="addToCart" class="btn btn-accent" style="margin-left:12px">Добавить в корзину</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Overloaded Defaults -->
+    <div class="screen" id="screen-defaults">
+      <div class="title">6) Подписки и чекбоксы — предзаполнения (Overloaded Defaults)</div>
+      <div class="muted small">Цель: подписаться и выбрать опции.</div>
+      <div style="height:10px"></div>
+      <div class="card">
+        <label><input type="checkbox" id="newsOpt"> Получать новости и предложения</label>
+        <label><input type="checkbox" id="shareOpt"> Поделиться данными с партнёрами</label>
+        <div style="height:12px"></div>
+        <button id="completeSignup" class="btn btn-green">Завершить регистрацию</button>
+      </div>
+    </div>
+
+    <!-- 7. Cancel with delay -->
+    <div class="screen" id="screen-cancel">
+      <div class="title">7) Отмена подписки — задержка (Delayed Feedback)</div>
+      <div class="muted small">Цель: отменить подписку.</div>
+      <div style="height:10px"></div>
+      <div class="card" id="cancel-card">
+        <div>Нажмите, чтобы отменить подписку</div>
+        <div style="height:10px"></div>
+        <button id="cancelSub" class="btn btn-danger">Отменить подписку</button>
+        <div id="cancelStatus" class="small muted" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- 8. Streak -->
+    <div class="screen" id="screen-streak">
+      <div class="title">8) Streak — геймификация (Gamified Coercion)</div>
+      <div class="muted small">Цель: выполнить действие сегодня.</div>
+      <div style="height:10px"></div>
+      <div class="card" id="streak-card">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-weight:700">Ваша серия: <span id="streakCount">5</span> дней</div>
+          <div style="margin-left:auto"><button id="doToday" class="btn btn-accent">Сделать сегодня</button></div>
+        </div>
+        <div style="height:10px"></div>
+        <div id="streakNote" class="small muted">Сохраните серию — получите значок.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="variant-pill">Group: <span id="groupLabel">A</span></div>
+      <div class="time">Session time: <span id="sessionTime">0s</span></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="muted small">Events captured:</div>
+      <div id="evtCount" class="variant-pill">0</div>
+      <button id="showLog" class="btn btn-ghost">Show log</button>
+    </div>
+  </footer>
+
+  <div style="height:10px"></div>
+
+  <div class="card">
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      <div style="flex:1">
+        <div style="font-weight:700;margin-bottom:8px">Системный лог (события)</div>
+        <div id="log" class="log">—</div>
+      </div>
+      <div style="width:260px">
+        <div style="font-weight:700;margin-bottom:8px">Инструкция для исследователя</div>
+        <ol style="padding-left:16px;margin:0">
+          <li>Выбери Participant ID и группу (A или B).</li>
+          <li>Нажми «Start session» перед тестом.</li>
+          <li>Проси участника выполнять задачи последовательно.</li>
+          <li>После сессии нажми Export results — скачай CSV.</li>
+        </ol>
+        <div style="height:8px"></div>
+        <button id="exportCSV2" class="btn btn-ghost">Export results (alt)</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal overlay for some confirmations -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div id="modalTitle" style="font-weight:700"></div>
+    <div id="modalBody" style="margin-top:8px" class="small muted"></div>
+    <div style="height:12px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button id="modalClose" class="btn btn-ghost">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ====== Simple research data capture ======
+  const events = [];
+  let sessionStartedAt = null;
+  let evtCount = 0;
+
+  function nowIso(){ return new Date().toISOString(); }
+  function logEvent(type, payload = {}){
+    const pid = document.getElementById('pid').value || 'unknown';
+    const group = document.getElementById('group').value || 'A';
+    const ts = nowIso();
+    const item = {participant:pid, group, ts, type, ...payload};
+    events.push(item);
+    evtCount++;
+    document.getElementById('evtCount').textContent = evtCount;
+    appendLog(item);
+  }
+
+  function appendLog(item){
+    const logEl = document.getElementById('log');
+    if(logEl.textContent.trim()==='—') logEl.textContent = '';
+    logEl.textContent = JSON.stringify(item) + '\\n' + logEl.textContent;
+  }
+
+  function resetData(){
+    events.length = 0;
+    evtCount = 0;
+    document.getElementById('evtCount').textContent = evtCount;
+    document.getElementById('log').textContent = '—';
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', ()=>{ if(confirm('Reset data?')) resetData(); });
+
+  // session timer
+  document.getElementById('startTimer').addEventListener('click', ()=>{
+    sessionStartedAt = Date.now();
+    logEvent('session_start',{startedAt: sessionStartedAt});
+    runSetup(); // setup UI according to group
+    tickTimer();
+  });
+
+  function tickTimer(){
+    if(!sessionStartedAt) return;
+    const s = Math.floor((Date.now()-sessionStartedAt)/1000);
+    document.getElementById('sessionTime').textContent = s + 's';
+    setTimeout(tickTimer, 500);
+  }
+
+  // Export CSV
+  function exportCsvFile(){
+    if(events.length===0){ alert('No events to export'); return; }
+    const keys = Object.keys(events[0]);
+    const csv = [keys.join(',')]
+      .concat(events.map(row => keys.map(k => JSON.stringify(row[k]||'')).join(',')))
+      .join('\\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const pid = document.getElementById('pid').value || 'participant';
+    a.download = pid + '_darkux_results.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    logEvent('export',{rows: events.length});
+  }
+  document.getElementById('exportBtn').addEventListener('click', exportCsvFile);
+  document.getElementById('exportCSV2').addEventListener('click', exportCsvFile);
+
+  // Show log
+  document.getElementById('showLog').addEventListener('click', ()=>{
+    const l = document.getElementById('log');
+    alert('Log snippet:\\n\\n' + l.textContent.slice(0,2000));
+  });
+
+  // Modal helpers
+  const overlay = document.getElementById('overlay');
+  function showModal(title, body){
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').textContent = body;
+    overlay.style.display = 'flex';
+  }
+  document.getElementById('modalClose').addEventListener('click', ()=> overlay.style.display='none');
+
+  // ====== Scenario setup based on group A/B ======
+  function runSetup(){
+    const group = document.getElementById('group').value;
+    document.getElementById('groupLabel').textContent = group;
+
+    setupPricing(group);
+    setupFee(group);
+    setupConfirmshame(group);
+    setupTrial(group);
+    setupScarcity(group);
+    setupDefaults(group);
+    setupCancel(group);
+    setupStreak(group);
+  }
+
+  // 1) Pricing (Deceptive Hierarchy / Anchoring)
+  function setupPricing(group){
+    const container = document.getElementById('tariff-list');
+    container.innerHTML = '';
+    const dataA = [
+      {id:'month', title:'Месяц', price:9, hint:'Отменить в любой момент'},
+      {id:'year', title:'Год', price:99, hint:'Экономия ~20%'}
+    ];
+    // For group B we invert visual priority and anchor with high price first
+    const order = (group==='B') ? ['year','month'] : ['month','year'];
+    const map = Object.fromEntries(dataA.map(d=>[d.id,d]));
+    order.forEach(id=>{
+      const d = map[id];
+      const card = document.createElement('div');
+      card.className = 'tariff';
+      card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700">${d.title}</div>
+          ${group==='B' && d.id==='year' ? '<div class="badge">Рекомендуем</div>' : ''}
+        </div>
+        <div class="price">$${d.price}</div>
+        <div class="small muted">${d.hint}</div>
+        <div class="cta">
+          <button class="btn ${group==='B' && d.id==='year'? 'btn-green': 'btn-ghost'} select-plan" data-plan="${d.id}" style="width:100%;margin-top:8px">
+            ${d.id==='year' ? 'Оформить годовую подписку' : 'Оформить помесячно'}
+          </button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    // attach listeners
+    Array.from(document.querySelectorAll('.select-plan')).forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        const plan = e.currentTarget.dataset.plan;
+        const t0 = Date.now();
+        showModal('Подтверждение выбора', `Вы выбрали план: ${plan}. Подтвердите оплату в следующем шаге.`);
+        logEvent('pricing_select',{plan, group, t0});
+        // set selected plan into payment screen
+        window.selectedPlan = plan;
+        // update sum display
+        const price = (plan==='year')?99:9;
+        document.getElementById('sum-amount').textContent = '$' + price;
+        document.getElementById('fee-note').textContent = 'Комиссия: —';
+      });
+    });
+  }
+
+  // 2) Fee screen (Progressive Disclosure)
+  function setupFee(group){
+    // On confirmPay, show fee immediately for B, or already visible for A
+    const confirmBtn = document.getElementById('confirmPay');
+    confirmBtn.onclick = ()=>{
+      const plan = window.selectedPlan || 'month';
+      const base = (plan==='year')?99:9;
+      if(group==='B'){
+        // reveal hidden fee at final step
+        const fee = 3; // hidden surcharge
+        document.getElementById('fee-note').textContent = 'Комиссия: $' + fee + ' (добавлено на финальном шаге)';
+        document.getElementById('sum-amount').textContent = '$' + (base + fee);
+        logEvent('fee_revealed',{plan,base,fee});
+        showModal('Комиссия добавлена', `К сумме $${base} добавлена комиссия $${fee}.`);
+      } else {
+        // A shows fee already earlier; we assume fee is known
+        const fee = 0;
+        logEvent('fee_confirmed',{plan,base,fee});
+        showModal('Оплата подтверждена', `Оплата $${base} успешно выполнена (контрольный сценарий).`);
+      }
+    };
+  }
+
+  // 3) Confirmshaming
+  function setupConfirmshame(group){
+    const accept = document.getElementById('acceptDisc');
+    const decline = document.getElementById('declineDisc');
+    accept.onclick = ()=>{ logEvent('disc_accept',{}); showModal('Скидка применена','Вы получили 20% скидку'); };
+    decline.onclick = ()=>{
+      if(group==='B'){
+        // Replace label text with confirmshaming phrasing
+        logEvent('disc_decline_confirmshame', {text:'No: I do not want to save 20%'} );
+        showModal('Подтверждение отказа', 'Вы выбрали отказаться (подверглись эмоциональной фразе).');
+      } else {
+        logEvent('disc_decline',{text:'No thanks'});
+        showModal('Подтверждение отказа', 'Вы отказались от скидки.');
+      }
+    };
+    // Update text for group B
+    if(group==='B'){
+      decline.textContent = 'Нет, я не хочу экономить 20%';
+    } else {
+      decline.textContent = 'Нет, спасибо';
+    }
+  }
+
+  // 4) Trial (Forced Continuity)
+  function setupTrial(group){
+    const start = document.getElementById('startTrial');
+    const trialNote = document.getElementById('trial-note');
+    if(group==='B'){
+      trialNote.style.opacity = 0.6;
+      trialNote.style.fontSize = '12px';
+      // visually minimize the post-trial price
+      trialNote.innerHTML = 'Попробуйте бесплатно';
+    } else {
+      trialNote.innerHTML = 'Потом — $9.99/мес';
+    }
+
+    start.onclick = ()=>{
+      const pid = document.getElementById('pid').value || 'unknown';
+      if(group==='B'){
+        // in B the actual price is hidden until later; record perception check
+        logEvent('trial_start',{pid,group,perceivedFree:true});
+        showModal('Триал активирован', '7 дней бесплатного доступа. (В dark-версии цена написана мелким шрифтом)');
+      } else {
+        logEvent('trial_start',{pid,group,perceivedFree:false});
+        showModal('Триал активирован', '7 дней бесплатно, далее $9.99/мес');
+      }
+    };
+  }
+
+  // 5) Scarcity
+  function setupScarcity(group){
+    const badge = document.getElementById('scarcity-badge');
+    if(group==='B'){
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+    document.getElementById('addToCart').onclick = ()=>{
+      const sc = (group==='B');
+      logEvent('add_to_cart',{scarcity:sc});
+      showModal('В корзину', 'Товар добавлен в корзину');
+    };
+  }
+
+  // 6) Overloaded Defaults (checkboxes)
+  function setupDefaults(group){
+    const n = document.getElementById('newsOpt');
+    const s = document.getElementById('shareOpt');
+    if(group==='B'){
+      n.checked = true;
+      s.checked = true;
+    } else {
+      n.checked = false;
+      s.checked = false;
+    }
+    document.getElementById('completeSignup').onclick = ()=>{
+      logEvent('signup_complete',{news:n.checked,share:s.checked});
+      showModal('Регистрация завершена', `news: ${n.checked}, share: ${s.checked}`);
+    };
+  }
+
+  // 7) Cancel (Delayed Feedback)
+  function setupCancel(group){
+    const btn = document.getElementById('cancelSub');
+    const status = document.getElementById('cancelStatus');
+    btn.onclick = async ()=>{
+      if(group==='B'){
+        status.textContent = 'Обрабатываем запрос...';
+        logEvent('cancel_clicked',{group,delayed:true,ts:nowIso()});
+        // artificial delay to simulate trap
+        await new Promise(r=>setTimeout(r, 6000));
+        status.textContent = 'Отмена выполнена';
+        logEvent('cancel_done',{group,ts:nowIso()});
+        showModal('Отмена подписки', 'Подписка отменена (после задержки).');
+      } else {
+        status.textContent = 'Отмена выполнена';
+        logEvent('cancel_done',{group,delayed:false,ts:nowIso()});
+        showModal('Отмена подписки', 'Подписка немедленно отменена.');
+      }
+    };
+  }
+
+  // 8) Streak (Gamified coercion)
+  function setupStreak(group){
+    const cntEl = document.getElementById('streakCount');
+    let cnt = 5;
+    cntEl.textContent = cnt;
+    const doBtn = document.getElementById('doToday');
+    doBtn.onclick = ()=>{
+      const before = cnt;
+      cnt++;
+      cntEl.textContent = cnt;
+      if(group==='B'){
+        logEvent('streak_continue',{before,after:cnt,forcedMsg:true});
+        showModal('Отлично!','Серия сохранена. Вы получите значок.');
+      } else {
+        logEvent('streak_continue',{before,after:cnt,forcedMsg:false});
+        showModal('Готово','Вы записали действие сегодня.');
+      }
+    };
+  }
+
+  // initial run for default group
+  runSetup();
+
+  // simple safety: ensure group change updates label and setup
+  document.getElementById('group').addEventListener('change', ()=>{
+    runSetup();
+    logEvent('group_change',{group: document.getElementById('group').value});
+  });
+
+  // Clear overlay on click outside
+  overlay.addEventListener('click',(e)=>{ if(e.target===overlay) overlay.style.display='none'; });
+
+  // ensure PID change logged
+  document.getElementById('pid').addEventListener('change', ()=>{
+    logEvent('pid_set',{pid: document.getElementById('pid').value});
+  });
+
+  // export on unload (optional)
+  window.addEventListener('beforeunload', ()=>{ /* we don't auto-export */ });
+
+  // initial log
+  logEvent('prototype_loaded',{version:'1.0'});
+</script>
+</body>
+</html>
